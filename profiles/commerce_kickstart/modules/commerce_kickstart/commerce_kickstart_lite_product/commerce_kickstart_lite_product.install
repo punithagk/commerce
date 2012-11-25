@@ -1,0 +1,42 @@
+<?php
+
+/**
+ * Implements hook_enable().
+ *
+ * Rebuilds the feature immediately after it's enabled.
+ */
+function commerce_kickstart_lite_product_enable() {
+  // Rebuild the features static caches.
+  features_include(TRUE);
+
+  $module = 'commerce_kickstart_lite_product';
+  $feature = feature_load($module);
+  $items[$module] = array_keys($feature->info['features']);
+  _features_restore('enable', $items);
+  _features_restore('rebuild', $items);
+
+  entity_defaults_rebuild();
+  $index = entity_load_single('search_api_index', 'product_display');
+  $index->server()->fieldsUpdated($index);
+}
+
+/**
+ * Implementation of hook_install()
+ */
+function commerce_kickstart_lite_product_install() {
+  db_update('system')
+    ->fields(array('weight' => 10))
+    ->condition('name', 'commerce_kickstart_lite_product')
+    ->execute();
+
+  // Create a "Free shipping" service so that the shipping pane is not empty.
+  $shipping_service = commerce_flat_rate_service_new();
+  $shipping_service['name'] = 'free_shipping';
+  $shipping_service['title'] = 'Free shipping';
+  $shipping_service['base_rate'] = array(
+    'amount' => 0,
+    'currency_code' => commerce_default_currency(),
+    'data' => array(),
+  );
+  commerce_flat_rate_service_save($shipping_service);
+}
